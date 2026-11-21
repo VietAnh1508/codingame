@@ -1,5 +1,7 @@
-export const MAP_WIDTH = 7000;
-export const MAP_HEIGHT = 3000;
+export const MAP_LEFT_BORDER = 0;
+export const MAP_RIGHT_BORDER = 6999;
+export const MAP_TOP_BORDER = 2999;
+export const MAP_BOTTOM_BORDER = 0;
 export const GRAVITY = 3.711;
 
 export const SAFE_VERTICAL_SPEED = 40;

@@ -97,19 +97,34 @@ How the design changed and what the user learned:
 - `findLandingZone` runs once and is passed in (the terrain never changes, and the search will run thousands of sims).
 
 File plan agreed (each file = "takes X, returns Y"):
-- engine / physics (now `simulator.ts`, `calculateNextState`): state + move → next state.
+- engine / physics (`ship-engine.ts`, `calculateNextState`; was `simulator.ts`): state + move → next state.
 - `environment.ts`: judges one turn → `ShipStatus`.
-- simulator: the loop that uses both. Not written yet; the rename of the current `simulator.ts` isn't done yet.
+- simulator: the loop that uses both. Not written yet. (Old `simulator.ts` renamed to `ship-engine.ts` in Session 4.)
 
 Test table used (terrain in `environment.test.ts`): flying high, soft landing, too fast, tilted, hits slope, spike (4950,1460)→(5050,1460), pad edge lands (2970,110)→(3010,95), pad edge hits slope first (3040,135)→(2990,90), off the side.
 
-Open items in `environment.ts`:
-- `<= 0` in `areSegmentsIntersect` gives a false crash when all four points are in a row but the segments don't touch. Confirmed: (875,600)→(900,580) is in line with the slope (1000,500)–(1500,100), 150 units above the ground, and returns CRASHED. Needs an overlap check for that case. Add it as a test first.
-- `checkShipStatus(ship, startPos, endPos, …)`: the ship's x/y and the points can disagree. Not answered yet: should the old or the new state's speed and angle count at touchdown? Suggested shape: `(oldShip, newShip, terrain, landingZone)`.
-- Delete the old dead functions (TODO at line ~102) and the commented-out line. Turn the 9 tests into an `it.each` table.
-- `isShipFlyOffTheMap`: x = 7000 counts as inside. Check the x range in the rules.
+Open items in `environment.ts`: all closed in Session 4.
+
+### Session 4 (2026-11-21)
+
+**`environment.ts` finished** (32 tests pass, typecheck clean).
+
+- In-line false crash fixed: the sign test plus a bounding-box overlap check. When the sign test passes and the points aren't all in a row, the boxes always overlap, so the box check only matters for the in-line case. Tests for both sides: in line but above ground → FLYING, in line and touching → CRASHED.
+- Renamed: `doSegmentsTouch` (the real answer) = `areSegmentsStraddling` (sign test) && box overlap. `isShipClashOnTheTerrain` → `doesShipHitTerrain`.
+- Map borders from the rules: x 0–6999, y 0–2999. y = 0 is the **ground** (bottom), so top = 2999. The first try had top/bottom swapped and the tests caught it. Constants are now `MAP_LEFT/RIGHT/TOP/BOTTOM_BORDER`.
+- Signature is now `checkShipStatus(curShipState, newShipState, terrain, landingZone)`. Positions come from the states, so the ship and the points can't disagree.
+- Landing uses the **new** state's angle and speeds. The angle is surely right (it's set at the start of the turn). The speeds are a **guess**: the real touchdown happens mid-turn, so the speed there is between old and new. Noted as a TODO in code.
+- Tests are one `it.each` table with `$name` titles. Each row has full `curShipState` / `newShipState` (spread from `initShipState`). Added: hSpeed too fast, speeds exactly at the limit (-40 / +20), mixed hSpeed signs.
+- Testing lesson: with two states per row, a value put on the wrong state is quietly ignored and the test still passes (the landing rows had their speeds on the old state). Check with a deliberate break, like `<=` → `<`.
+
+Guesses to check against the real game if a landing ever disagrees:
+- Old vs new vs touchdown-point speed at landing.
+- Does the game compare rounded speeds (-40.4 shows -40) or exact ones?
+- Is x = 6999.5 off the map?
+- (from Session 2) `Math.round(-2.5)` = -2.
+
+Small leftovers: the tilted row has a stray `vSpeed: -20` on `curShipState`. There's no "off the top" test.
 
 ## Next step
 
-- Finish the `environment.ts` open items (end of Session 3 above).
-- Simulator loop: start state + moves → run turn by turn (engine, then judge) until the status isn't `FLYING`. Still to decide: fixed move list or a decide function, and what the run returns besides the status (think about how the optimization version scores).
+- Simulator loop: start state + moves → run turn by turn (engine, then judge) until the status isn't `FLYING`. Still to decide: fixed move list or a decide function, and what the run returns besides the status (think about how the optimization version scores, and how a search compares two failed plans). Also: what happens when the move list runs out?

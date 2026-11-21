@@ -1,6 +1,8 @@
 import {
-  MAP_HEIGHT,
-  MAP_WIDTH,
+  MAP_BOTTOM_BORDER,
+  MAP_LEFT_BORDER,
+  MAP_RIGHT_BORDER,
+  MAP_TOP_BORDER,
   SAFE_HORIZONTAL_SPEED,
   SAFE_VERTICAL_SPEED,
 } from "./constants";
@@ -32,43 +34,51 @@ export function findLandingZone(terrain: Point[]): LandingZone {
 }
 
 export function checkShipStatus(
-  ship: Ship,
-  startPos: Point,
-  endPos: Point,
+  curShipState: Ship,
+  newShipState: Ship,
   terrain: Point[],
   landingZone: LandingZone,
 ): ShipStatus {
-  if (isShipFlyOffTheMap(endPos)) {
+  if (isShipFlyOffTheMap(newShipState)) {
     return ShipStatus.CRASHED;
   }
 
-  if (isShipClashOnTheTerrain(startPos, endPos, terrain)) {
-    return getLandOrCrashStatus(ship, startPos, endPos, landingZone);
+  if (doesShipHitTerrain(curShipState, newShipState, terrain)) {
+    return getLandOrCrashStatus(curShipState, newShipState, landingZone);
   }
 
   return ShipStatus.FLYING;
 }
 
-export function isShipFlyOffTheMap({ x, y }: Point): boolean {
-  return x < 0 || x > MAP_WIDTH || y < 0 || y > MAP_HEIGHT;
+export function isShipFlyOffTheMap({ x, y }: Ship): boolean {
+  // not sure if x=6999.5 is off the border or not, to check later
+  return (
+    x < MAP_LEFT_BORDER ||
+    x > MAP_RIGHT_BORDER ||
+    y < MAP_BOTTOM_BORDER ||
+    y > MAP_TOP_BORDER
+  );
 }
 
 export function getLandOrCrashStatus(
-  ship: Ship,
-  startPos: Point,
-  endPos: Point,
+  curShipState: Ship,
+  newShipState: Ship,
   landingZone: LandingZone,
 ): ShipStatus {
+  const curShipPos = getShipPosition(curShipState);
+  const newShipPos = getShipPosition(newShipState);
+
+  // TODO: can be improved by checking the speeds when the ship actually touches the ground
   if (
-    areSegmentsIntersect(
-      startPos,
-      endPos,
+    doSegmentsTouch(
+      curShipPos,
+      newShipPos,
       landingZone.start,
       landingZone.end,
     ) &&
-    ship.rotationAngle === 0 &&
-    Math.abs(ship.hSpeed) <= SAFE_HORIZONTAL_SPEED &&
-    Math.abs(ship.vSpeed) <= SAFE_VERTICAL_SPEED
+    newShipState.rotationAngle === 0 &&
+    Math.abs(newShipState.hSpeed) <= SAFE_HORIZONTAL_SPEED &&
+    Math.abs(newShipState.vSpeed) <= SAFE_VERTICAL_SPEED
   ) {
     return ShipStatus.LANDED;
   }
@@ -76,11 +86,14 @@ export function getLandOrCrashStatus(
   return ShipStatus.CRASHED;
 }
 
-function isShipClashOnTheTerrain(
-  shipCurPos: Point,
-  shipNextPos: Point,
+function doesShipHitTerrain(
+  curShipState: Ship,
+  newShipState: Ship,
   terrain: Point[],
 ): boolean {
+  const oldShipPos = getShipPosition(curShipState);
+  const newShipPos = getShipPosition(newShipState);
+
   for (let i = 0; i < terrain.length - 1; i++) {
     const currentPoint = terrain[i];
     const nextPoint = terrain[i + 1];
@@ -88,16 +101,21 @@ function isShipClashOnTheTerrain(
       continue;
     }
 
-    if (
-      areSegmentsIntersect(shipCurPos, shipNextPos, currentPoint, nextPoint)
-    ) {
+    if (doSegmentsTouch(oldShipPos, newShipPos, currentPoint, nextPoint)) {
       return true;
     }
   }
   return false;
 }
 
-function areSegmentsIntersect(
+function doSegmentsTouch(a1: Point, a2: Point, b1: Point, b2: Point) {
+  return (
+    areSegmentsStraddling(a1, a2, b1, b2) &&
+    doBoundingBoxesOverlap(a1, a2, b1, b2)
+  );
+}
+
+function areSegmentsStraddling(
   a1: Point,
   a2: Point,
   b1: Point,
@@ -111,7 +129,26 @@ function areSegmentsIntersect(
   return d1 * d2 <= 0 && d3 * d4 <= 0;
 }
 
-function direction(pi: Point, pj: Point, pk: Point): number {
-  return (pk.x - pi.x) * (pj.y - pi.y) - (pj.x - pi.x) * (pk.y - pi.y);
+function direction(A: Point, B: Point, C: Point): number {
+  return (C.x - A.x) * (B.y - A.y) - (B.x - A.x) * (C.y - A.y);
 }
 
+function doBoundingBoxesOverlap(
+  a1: Point,
+  a2: Point,
+  b1: Point,
+  b2: Point,
+): boolean {
+  const xOverlap =
+    Math.max(a1.x, a2.x) >= Math.min(b1.x, b2.x) &&
+    Math.max(b1.x, b2.x) >= Math.min(a1.x, a2.x);
+  const yOverlap =
+    Math.max(a1.y, a2.y) >= Math.min(b1.y, b2.y) &&
+    Math.max(b1.y, b2.y) >= Math.min(a1.y, a2.y);
+
+  return xOverlap && yOverlap;
+}
+
+function getShipPosition({ x, y }: Ship): Point {
+  return { x, y };
+}

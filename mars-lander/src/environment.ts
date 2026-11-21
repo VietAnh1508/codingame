@@ -51,7 +51,7 @@ export function checkShipStatus(
 }
 
 export function isShipFlyOffTheMap({ x, y }: Ship): boolean {
-  // not sure if x=6999.5 is off the border or not, to check later
+  // TODO: not sure if x=6999.5 is off the border or not, to check later
   return (
     x < MAP_LEFT_BORDER ||
     x > MAP_RIGHT_BORDER ||

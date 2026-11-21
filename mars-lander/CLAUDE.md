@@ -125,6 +125,18 @@ Guesses to check against the real game if a landing ever disagrees:
 
 Small leftovers: the tilted row has a stray `vSpeed: -20` on `curShipState`. There's no "off the top" test.
 
+### Session 5 (2026-11-21)
+
+**Simulator done** (`src/simulator.ts`, `simulate`; 36 tests pass, typecheck clean).
+
+- First draft mixed the simulator with the search (trying all 60 moves each turn, building a tree). Split them: the **simulator** plays one plan and reports what happened. The **search** (not written yet) picks which plans to try. A full tree is impossible anyway: 60 moves per turn over ~100 turns.
+- Signature: `simulate(ship, moveList, terrain, landingZone): SimulationResult` (`{ state, status }`). The plan and the terrain are passed in so tests and the search can give their own.
+- Status starts as `FLYING`, so an empty plan or a plan that runs out mid-air returns the last state + `FLYING`. No `undefined`.
+- On crash or landing, it returns right away with the **impact turn's** state (`nextState`), not the turn before.
+- Known difference (TODO in `simulator.ts`): CodinGame shows the crashed ship at the point where it **touches** the ground. The sim returns the **end-of-turn** point (can be below the ground). Same root cause as the Session 4 touchdown-speed TODO. Fix both together if scoring needs it (you'd need *where* on the segment it touched, not just *whether*). The two crash tests encode end-of-turn y on purpose, with notes.
+- Testing lessons: a mismatch with the game was the **wrong terrain** in the test, not a physics bug. Check the input first. The break test (delete the early `return`) showed a plan that crashes on its *last* move can't prove the loop stops early. The fix was a test with moves left over (crash on turn 33 of 38).
+- Tests: empty plan, 10 turns of `-20 3` (game data), crash on the last move (38 turns), crash with moves left over.
+
 ## Next step
 
-- Simulator loop: start state + moves → run turn by turn (engine, then judge) until the status isn't `FLYING`. Still to decide: fixed move list or a decide function, and what the run returns besides the status (think about how the optimization version scores, and how a search compares two failed plans). Also: what happens when the move list runs out?
+- **Search / scoring:** how do you compare two plans, especially two that both crash (e.g. pad at vSpeed −45 vs a slope 2000 units away)? What numbers from `SimulationResult` would a score use, and is `{ state, status }` enough? Still open: the big choice (A) smarter rules vs (B) simulate and search, and how plans are made (random, genetic, etc.).

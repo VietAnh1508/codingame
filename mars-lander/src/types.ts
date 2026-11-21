@@ -30,3 +30,8 @@ export enum ShipStatus {
   CRASHED,
   LANDED,
 }
+
+export type SimulationResult = {
+  state: Ship;
+  status: ShipStatus;
+};

@@ -7,6 +7,7 @@ import {
   Ship,
   ShipStatus,
   SimulationResult,
+  TraceStep,
 } from "./types";
 
 export function simulate(
@@ -14,15 +15,19 @@ export function simulate(
   moveList: Move[],
   terrain: Point[],
   landingZone: LandingZone,
+  onStep?: (traceStep: TraceStep) => void,
 ): SimulationResult {
   let currentState: Ship = { ...ship };
   let shipStatus = ShipStatus.FLYING;
+  onStep?.({ step: 0, ship: currentState, status: shipStatus });
 
-  for (const move of moveList) {
+  for (const [i, move] of moveList.entries()) {
     const nextState = calculateNextState(currentState, move);
     shipStatus = checkShipStatus(currentState, nextState, terrain, landingZone);
 
     if (shipStatus !== ShipStatus.FLYING) {
+      onStep?.({ step: i + 1, ship: nextState, status: shipStatus });
+
       // TODO: return the touching point instead of the end-of-turn point
       return {
         state: nextState,
@@ -31,6 +36,7 @@ export function simulate(
     }
 
     currentState = nextState;
+    onStep?.({ step: i + 1, ship: currentState, status: shipStatus });
   }
 
   return {
@@ -38,4 +44,3 @@ export function simulate(
     status: shipStatus,
   };
 }
-

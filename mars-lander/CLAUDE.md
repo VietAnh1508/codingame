@@ -137,6 +137,23 @@ Small leftovers: the tilted row has a stray `vSpeed: -20` on `curShipState`. The
 - Testing lessons: a mismatch with the game was the **wrong terrain** in the test, not a physics bug. Check the input first. The break test (delete the early `return`) showed a plan that crashes on its *last* move can't prove the loop stops early. The fix was a test with moves left over (crash on turn 33 of 38).
 - Tests: empty plan, 10 turns of `-20 3` (game data), crash on the last move (38 turns), crash with moves left over.
 
+### Session 6 (2026-11-28)
+
+**Path recorder done** (optional `onStep` in `simulate`; 38 tests pass, typecheck clean). Goal: draw paths with D3 to check the physics and, later, see what the search tries and how it scores.
+
+- User chose to keep `simulate` lean: no second loop to copy (it would drift from the real one), just an optional `onStep?: (traceStep: TraceStep) => void`. No extra debug flag: "no callback" already means off, and two switches can disagree.
+- `TraceStep` = `{ step, ship, status }` in `src/types.ts`, with the full `Ship` (for hover info later). `step`: 0 = start, k = state after k moves. Calls: once before the loop, after each move, and on the crash/landing turn with the **impact** state before the early return. A flying plan of n moves gives n + 1 entries.
+- The caller owns the `trace` array. The search never passes a callback, only the viz export does.
+- `calculateNextState` returns a new object each turn, so keeping the passed `ship` objects in the array is safe.
+- Bugs caught in review: on the crash turn the first version passed the *pre*-impact state (duplicate, impact missing), then the right state with a repeated step number. Tests didn't catch it until they checked the step list (`trace.map(t => t.step)`) and the first/last entries (`toEqual` the start state / `simulate`'s returned state).
+- Lessons: `src` must not import from `viz` (the type first lived in `viz/type.ts`). A test parameter named `expect` shadowed Vitest's `expect` ("not callable"). `.at(-1)` is still typed `T | undefined`, so use `?.` inside `expect` instead of `!`. Trace tests check only the trace, so the game numbers live in one test each. `assertResult` helper for the rounded game-data checks.
+
+D3 viz plan (in progress, `viz/`, not committed yet; `tsconfig.json` `include` has `viz` locally):
+- `viz/export.ts` (run with `npx tsx`): runs plans through `simulate` with `onStep`, writes JSON like `{ terrain, landingZone, paths: [{ status, trace }] }`. Open: status as number or name, which level first (the 10-turn level is easiest to compare).
+- `viz/index.html`: D3 from a CDN as an ES module, served with `python3 -m http.server` (`fetch` fails on `file://`). Pieces: `scaleLinear` (flip y: game y = 0 is the ground), `d3.line` for terrain, `data().join()` for many paths.
+- First milestone: terrain + pad + the 10-turn path, matching CodinGame.
+
 ## Next step
 
+- **Viz:** finish `viz/export.ts` and the first D3 page (see Session 6 plan).
 - **Search / scoring:** how do you compare two plans, especially two that both crash (e.g. pad at vSpeed −45 vs a slope 2000 units away)? What numbers from `SimulationResult` would a score use, and is `{ state, status }` enough? Still open: the big choice (A) smarter rules vs (B) simulate and search, and how plans are made (random, genetic, etc.).

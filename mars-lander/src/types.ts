@@ -35,3 +35,9 @@ export type SimulationResult = {
   state: Ship;
   status: ShipStatus;
 };
+
+export type TraceStep = {
+  step: number; // 0 = start, k = state after k moves
+  ship: Ship;
+  status: ShipStatus;
+};

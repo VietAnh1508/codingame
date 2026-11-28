@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { findLandingZone } from "./environment";
 import { simulate } from "./simulator";
-import { Point, ShipStatus } from "./types";
+import { Point, Ship, ShipStatus, TraceStep } from "./types";
+
+const COMPARED_DECIMAL_PLACE = 0; // CodinGame shows values in integer
 
 describe("simulator", () => {
   const initialState = {
@@ -35,13 +37,7 @@ describe("simulator", () => {
     const { state, status } = simulate(initialState, [], terrain, landingZone);
     expect(status).toEqual(ShipStatus.FLYING);
 
-    expect(Math.round(state.x)).toEqual(finalState.x);
-    expect(Math.round(state.y)).toEqual(finalState.y);
-    expect(Math.round(state.hSpeed)).toEqual(finalState.hSpeed);
-    expect(Math.round(state.vSpeed)).toEqual(finalState.vSpeed);
-    expect(state.fuel).toEqual(finalState.fuel);
-    expect(state.rotationAngle).toEqual(finalState.rotationAngle);
-    expect(state.thrustPower).toEqual(finalState.thrustPower);
+    assertResult(state, finalState);
   });
 
   it("should be still flying after 10 turns", () => {
@@ -71,13 +67,7 @@ describe("simulator", () => {
     );
     expect(status).toEqual(ShipStatus.FLYING);
 
-    expect(Math.round(state.x)).toEqual(finalState.x);
-    expect(Math.round(state.y)).toEqual(finalState.y);
-    expect(Math.round(state.hSpeed)).toEqual(finalState.hSpeed);
-    expect(Math.round(state.vSpeed)).toEqual(finalState.vSpeed);
-    expect(state.fuel).toEqual(finalState.fuel);
-    expect(state.rotationAngle).toEqual(finalState.rotationAngle);
-    expect(state.thrustPower).toEqual(finalState.thrustPower);
+    assertResult(state, finalState);
   });
 
   it("should be crashed after 38 turns", () => {
@@ -108,13 +98,7 @@ describe("simulator", () => {
     );
     expect(status).toEqual(ShipStatus.CRASHED);
 
-    expect(Math.round(state.x)).toEqual(finalState.x);
-    expect(Math.round(state.y)).toEqual(finalState.y);
-    expect(Math.round(state.hSpeed)).toEqual(finalState.hSpeed);
-    expect(Math.round(state.vSpeed)).toEqual(finalState.vSpeed);
-    expect(state.fuel).toEqual(finalState.fuel);
-    expect(state.rotationAngle).toEqual(finalState.rotationAngle);
-    expect(state.thrustPower).toEqual(finalState.thrustPower);
+    assertResult(state, finalState);
   });
 
   it("should be crashed early when it hitting the terrain", () => {
@@ -147,12 +131,77 @@ describe("simulator", () => {
     // it should be crashed at turn 33 because of hitting the terrain
     expect(status).toEqual(ShipStatus.CRASHED);
 
-    expect(Math.round(state.x)).toEqual(finalState.x);
-    expect(Math.round(state.y)).toEqual(finalState.y);
-    expect(Math.round(state.hSpeed)).toEqual(finalState.hSpeed);
-    expect(Math.round(state.vSpeed)).toEqual(finalState.vSpeed);
-    expect(state.fuel).toEqual(finalState.fuel);
-    expect(state.rotationAngle).toEqual(finalState.rotationAngle);
-    expect(state.thrustPower).toEqual(finalState.thrustPower);
+    assertResult(state, finalState);
+  });
+
+  it("should record the trace in 10 turns", () => {
+    const move = {
+      rotationAngle: -20,
+      thrustPower: 3,
+    };
+
+    const planMoves = 10;
+    const moveList = Array.from({ length: planMoves }, () => ({ ...move }));
+
+    const trace: TraceStep[] = [];
+    const { state, status } = simulate(
+      initialState,
+      moveList,
+      terrain,
+      landingZone,
+      (traceStep) => trace.push(traceStep),
+    );
+    expect(status).toEqual(ShipStatus.FLYING);
+
+    expect(trace.map((t) => t.step)).toEqual(
+      Array.from({ length: planMoves + 1 }).map((_, i) => i),
+    );
+    expect(trace[0]?.ship).toEqual(initialState);
+    expect(trace.at(-1)?.status).toEqual(status);
+    expect(trace.at(-1)?.ship).toEqual(state);
+  });
+
+  it("should record the trace when crashed", () => {
+    const move = {
+      rotationAngle: 0,
+      thrustPower: 0,
+    };
+
+    const firstState = {
+      ...initialState,
+      vSpeed: -20,
+    };
+
+    const moveList = Array.from({ length: 38 }, () => ({ ...move }));
+
+    const trace: TraceStep[] = [];
+    const { state, status } = simulate(
+      firstState,
+      moveList,
+      terrain,
+      landingZone,
+      (traceStep) => trace.push(traceStep),
+    );
+
+    // it should be crashed at turn 33 because of hitting the terrain
+    expect(status).toEqual(ShipStatus.CRASHED);
+
+    const crashTurn = 33;
+    expect(trace.map((t) => t.step)).toEqual(
+      Array.from({ length: crashTurn + 1 }).map((_, i) => i),
+    );
+    expect(trace[0]?.ship).toEqual(firstState);
+    expect(trace.at(-1)?.status).toEqual(status);
+    expect(trace.at(-1)?.ship).toEqual(state);
   });
 });
+
+function assertResult(actual: Ship, expected: Ship) {
+  expect(actual.x).toBeCloseTo(expected.x, COMPARED_DECIMAL_PLACE);
+  expect(actual.y).toBeCloseTo(expected.y, COMPARED_DECIMAL_PLACE);
+  expect(actual.hSpeed).toBeCloseTo(expected.hSpeed, COMPARED_DECIMAL_PLACE);
+  expect(actual.vSpeed).toBeCloseTo(expected.vSpeed, COMPARED_DECIMAL_PLACE);
+  expect(actual.fuel).toEqual(expected.fuel);
+  expect(actual.rotationAngle).toEqual(expected.rotationAngle);
+  expect(actual.thrustPower).toEqual(expected.thrustPower);
+}
